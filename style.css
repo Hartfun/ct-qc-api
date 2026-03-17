@@ -1,0 +1,156 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #f0f4f8;
+  color: #1e293b;
+}
+
+header {
+  background: #1e3a5f;
+  color: white;
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+header h1 { font-size: 1.4rem; }
+header span { font-size: 0.85rem; opacity: 0.7; }
+
+.container {
+  max-width: 1100px;
+  margin: 28px auto;
+  padding: 0 20px;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.card h2 {
+  font-size: 1rem;
+  color: #1e3a5f;
+  margin-bottom: 18px;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 10px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.leak-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.field input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+.field input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+button {
+  background: #1e3a5f;
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+button:hover { background: #2d5a8e; }
+button:disabled { background: #94a3b8; cursor: not-allowed; }
+
+.result {
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+.result.pass  { background: #f0fdf4; border: 2px solid #22c55e; }
+.result.fail  { background: #fff1f2; border: 2px solid #f43f5e; }
+.result.anomaly { background: #fefce8; border: 2px solid #eab308; }
+.result h2 { font-size: 1.2rem; margin-bottom: 12px; }
+
+.scores {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.score-box {
+  background: white;
+  border-radius: 8px;
+  padding: 12px 16px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.score-box .val { font-size: 1.3rem; font-weight: 700; color: #1e3a5f; }
+.score-box .lbl { font-size: 0.72rem; color: #64748b; margin-top: 2px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th {
+  background: #f1f5f9;
+  text-align: left;
+  padding: 10px 12px;
+  color: #475569;
+  font-weight: 600;
+}
+td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge.pass { background: #dcfce7; color: #166534; }
+.badge.fail { background: #fee2e2; color: #991b1b; }
+
+.status-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-bottom: 16px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+.dot.online { background: #22c55e; }
+
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
