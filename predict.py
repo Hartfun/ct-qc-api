@@ -115,3 +115,4 @@ if __name__ == "__main__":
         "serial No": "CT-DEMO-001",
     }
     print(predict(sample))
+
