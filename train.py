@@ -1,12 +1,21 @@
-import pandas as pd
+"""
+train.py — run locally (NOT inside the Docker container).
+
+  python train.py
+
+Produces model/ct_qc_production.pkl which must be committed to the repo
+before building the Docker image.
+"""
+
+import os
+import pickle
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import RobustScaler
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
-import pickle
-import os
 
-# === SPECS & TOLERANCES (match debug_cols.py) ===
+# === SPECS & TOLERANCES ===
 specs = {
     'Slice thickness 1.5': 1.5,
     'Slice thickness 5': 5,
@@ -63,19 +72,17 @@ FEATURE_COLS = [
     'Leakage_Max_Norm',
 ]
 
+
 def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
-    # Date
     if 'Date' in df.columns:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df = df.sort_values('Date')
+        df = df.sort_values('Date').reset_index(drop=True)
 
-    # % deviation features
     for col, spec in specs.items():
         df[f"{col} %dev"] = (df[col] - spec) / spec * 100
 
-    # Pass/fail for imaging params
     pass_cols = []
     for col, spec in specs.items():
         tol = tolerances.get(col, 0.1)
@@ -86,15 +93,13 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
             df[pass_col] = df[col].between(spec - tol, spec + tol)
         pass_cols.append(pass_col)
 
-    # Leakage
     df['Leakage_Max_Norm'] = (500 * df[LEAK_COLS].max(axis=1)) / (60 * 8)
     df['Leakage Pass'] = df['Leakage_Max_Norm'] <= LEAK_LIMIT
-
-    # Overall
     df['All_Imaging_Pass'] = df[pass_cols].all(axis=1)
     df['Overall_Acceptance_Pass'] = df['All_Imaging_Pass'] & df['Leakage Pass']
 
     return df
+
 
 def train():
     print("📂 Loading data from data/CT-Test.csv...")
@@ -119,13 +124,12 @@ def train():
     lof = LocalOutlierFactor(n_neighbors=20, contamination=0.18, novelty=True)
     lof.fit(X_scaled)
 
-    print("📈 Computing ensemble scores...")
+    print("📈 Computing ensemble scores & threshold...")
     iso_scores = iso.decision_function(X_scaled)
     lof_scores = lof.decision_function(X_scaled)
-    ensemble_score = 0.7 * iso_scores + 0.3 * lof_scores
-    threshold = np.percentile(ensemble_score, 10)
-
-    print(f"✓ Threshold computed: {threshold:.6f}")
+    ensemble_scores = 0.7 * iso_scores + 0.3 * lof_scores
+    threshold = float(np.percentile(ensemble_scores, 10))
+    print(f"✓ Threshold: {threshold:.6f}")
 
     model_bundle = {
         'scaler': scaler,
@@ -141,12 +145,13 @@ def train():
     with open('model/ct_qc_production.pkl', 'wb') as f:
         pickle.dump(model_bundle, f)
 
-    print("\n✅ Model training complete!")
-    print("📦 Saved to: model/ct_qc_production.pkl")
-    print(f"🎯 Ensemble threshold: {threshold:.6f}")
+    print("\n✅ Training complete — model/ct_qc_production.pkl written.")
+    print("   Commit this file before running `docker build`.")
+
 
 if __name__ == '__main__':
     try:
         train()
     except Exception as e:
         print(f"❌ Error: {e}")
+        raise
