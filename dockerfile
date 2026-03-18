@@ -1,18 +1,19 @@
 FROM python:3.12-slim AS builder
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m venv /opt/venv \
+  && . /opt/venv/bin/activate \
+  && pip install --no-cache-dir -r requirements.txt
 COPY data/ data/
 COPY train.py .
-RUN python train.py  # Creates model/ct_qc_production.pkl
+RUN . /opt/venv/bin/activate && python train.py  # Creates model/ct_qc_production.pkl
 
 FROM python:3.12-slim
 WORKDIR /app
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /app/model model/
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 COPY predict.py .
 
+ENV PATH="/opt/venv/bin:$PATH"
 EXPOSE $PORT
-CMD ["sh", "-c", "uvicorn predict:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["uvicorn", "predict:app", "--host", "0.0.0.0", "--port", "${PORT:-8000}"]
