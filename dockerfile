@@ -4,7 +4,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py model/ct_qc_production.pkl .
+COPY app.py .
+COPY model/ct_qc_production.pkl model/
 
 ENV PORT=10000
 EXPOSE $PORT
