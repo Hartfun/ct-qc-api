@@ -11,12 +11,93 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="CT QC Anomaly Detection API")
 
 # Paste your train.py globals here EXACTLY
-specs = {  # From your train.py - copy full dict
-    'Slice thickness 1.5': 1.5,  # ... complete
+specs = {
+    'Slice thickness 1.5': 1.5,
+    'Slice thickness 5': 5,
+    'Slice thickness 10': 10,
+    'KV accuracy 80': 80,
+    'KV accuracy 110': 110,
+    'KV accuracy 130': 130,
+    'Accuracy Timer 0.8': 0.8,
+    'Accuracy Timer 1': 1.0,
+    'Accuracy Timer 1.5': 1.5,
+    'Radiation Dose Test (Head) 21.50': 21.50,
+    'Radiation Dose Test (Body) 10.60': 10.60,
+    'Low Contrast Resolution 5.0': 5.0,
+    'High Contrast Resolution 6.24': 6.24,
 }
-# ... tolerances, FEATURE_COLS, LEAK_COLS, LEAK_LIMIT
-def preprocess(df):  # Copy FULL function from train.py
-    # Your exact preprocess logic
+tolerances = {
+    'Slice thickness 1.5': 0.5,
+    'Slice thickness 5': 2.5,
+    'Slice thickness 10': 5.0,
+    'KV accuracy 80': 2.0,
+    'KV accuracy 110': 2.0,
+    'KV accuracy 130': 2.0,
+    'Accuracy Timer 0.8': 0.08,
+    'Accuracy Timer 1': 0.1,
+    'Accuracy Timer 1.5': 0.15,
+    'Radiation Dose Test (Head) 21.50': 21.50 * 0.2,
+    'Radiation Dose Test (Body) 10.60': 10.60 * 0.2,
+    'High Contrast Resolution 6.24': 0.62,
+}
+
+LEAK_COLS = [
+    'Radiation Leakage Levels (Front)',
+    'Radiation Leakage Levels (Back)',
+    'Radiation Leakage Levels (Left)',
+    'Radiation Leakage Levels (Right)',
+]
+LEAK_LIMIT = 115.0
+
+FEATURE_COLS = [
+    'Slice thickness 1.5 %dev',
+    'Slice thickness 5 %dev',
+    'Slice thickness 10 %dev',
+    'KV accuracy 80 %dev',
+    'KV accuracy 110 %dev',
+    'KV accuracy 130 %dev',
+    'Accuracy Timer 0.8 %dev',
+    'Accuracy Timer 1 %dev',
+    'Accuracy Timer 1.5 %dev',
+    'Radiation Dose Test (Head) 21.50 %dev',
+    'Radiation Dose Test (Body) 10.60 %dev',
+    'Low Contrast Resolution 5.0 %dev',
+    'High Contrast Resolution 6.24 %dev',
+    'Leakage_Max_Norm',
+]
+
+def preprocess(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    # Date
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        df = df.sort_values('Date')
+
+    # % deviation features
+    for col, spec in specs.items():
+        df[f"{col} %dev"] = (df[col] - spec) / spec * 100
+
+    # Pass/fail for imaging params
+    pass_cols = []
+    for col, spec in specs.items():
+        tol = tolerances.get(col, 0.1)
+        pass_col = f"{col} Pass"
+        if col == 'Low Contrast Resolution 5.0':
+            df[pass_col] = df[col] <= 5.0
+        else:
+            df[pass_col] = df[col].between(spec - tol, spec + tol)
+        pass_cols.append(pass_col)
+
+    # Leakage
+    df['Leakage_Max_Norm'] = (500 * df[LEAK_COLS].max(axis=1)) / (60 * 8)
+    df['Leakage Pass'] = df['Leakage_Max_Norm'] <= LEAK_LIMIT
+
+    # Overall
+    df['All_Imaging_Pass'] = df[pass_cols].all(axis=1)
+    df['Overall_Acceptance_Pass'] = df['All_Imaging_Pass'] & df['Leakage Pass']
+
+    return df
     pass
 
 MODEL_PATH = 'model/ct_qc_production.pkl'
