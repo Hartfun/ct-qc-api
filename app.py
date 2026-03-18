@@ -3,9 +3,10 @@ import pickle
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Dict, Any
-import threading  # For thread-safe lazy loading
+import threading
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="CT QC Anomaly Detection API")
 
@@ -33,9 +34,30 @@ def get_model():
     return MODEL
 
 class ScanInput(BaseModel):
+    """CT QC Record - ALL fields required"""
     serial_No: str
-    # Add ALL fields from FEATURE_COLS: Slice thickness 1.5: float, etc.
-    # Or use Dict[str, Any] for flexibility
+    slice_thickness_1_5: float = Field(..., alias="Slice thickness 1.5")
+    slice_thickness_5: float = Field(..., alias="Slice thickness 5")
+    slice_thickness_10: float = Field(..., alias="Slice thickness 10")
+    kv_accuracy_80: float = Field(..., alias="KV accuracy 80")
+    kv_accuracy_110: float = Field(..., alias="KV accuracy 110")
+    kv_accuracy_130: float = Field(..., alias="KV accuracy 130")
+    accuracy_timer_0_8: float = Field(..., alias="Accuracy Timer 0.8")
+    accuracy_timer_1: float = Field(..., alias="Accuracy Timer 1")
+    accuracy_timer_1_5: float = Field(..., alias="Accuracy Timer 1.5")
+    radiation_dose_head: float = Field(..., alias="Radiation Dose Test (Head) 21.50")
+    radiation_dose_body: float = Field(..., alias="Radiation Dose Test (Body) 10.60")
+    low_contrast_resolution: float = Field(..., alias="Low Contrast Resolution 5.0")
+    high_contrast_resolution: float = Field(..., alias="High Contrast Resolution 6.24")
+    
+    # Leakage
+    leak_front: float = Field(..., alias="Radiation Leakage Levels (Front)")
+    leak_back: float = Field(..., alias="Radiation Leakage Levels (Back)")
+    leak_left: float = Field(..., alias="Radiation Leakage Levels (Left)")
+    leak_right: float = Field(..., alias="Radiation Leakage Levels (Right)")
+
+    class Config:
+        populate_by_name = True 
 
 @app.get("/")
 def root():
