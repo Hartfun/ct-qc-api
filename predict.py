@@ -48,7 +48,7 @@ LEAK_COLS = [
     'Radiation Leakage Levels (Left)',
     'Radiation Leakage Levels (Right)',
 ]
-LEAK_LIMIT = 115.0
+LEAK_LIMIT = 1.0   # normalized leakage limit: (500 mA/hr * max_raw) / (60 min * 240 mA) <= 1
 
 FEATURE_COLS = [
     'Slice thickness 1.5 %dev',
@@ -90,7 +90,17 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
             df[pass_col] = df[col].between(spec - tol, spec + tol)
         pass_cols.append(pass_col)
 
-    df['Leakage_Max_Norm'] = (500 * df[LEAK_COLS].max(axis=1)) / (60 * 8)
+    # Leakage_Max_Norm = workload-normalised leakage rate.
+    # Formula: (500 mA/hr x max_raw_mR/hr) / (60 min * 240 mA)
+    # 500  = reference tube current in mA/hr (max rated)
+    # 240  = actual tube current used during leakage measurement (mA)
+    # 60   = minutes in an hour
+    # Result: dimensionless ratio; pass when <= 1.0
+    # Formula: (500 mA × max_raw_reading) / (60 s × 8 min)
+    # 500  = nominal tube current (mA)
+    # 60*8 = 480 s = 8-minute scan workload
+    # Pass when Leakage_Max_Norm <= 1.0
+    df['Leakage_Max_Norm'] = (500 * df[LEAK_COLS].max(axis=1)) / (60 * 240)
     df['Leakage Pass'] = df['Leakage_Max_Norm'] <= LEAK_LIMIT
     df['All_Imaging_Pass'] = df[pass_cols].all(axis=1)
     df['Overall_Acceptance_Pass'] = df['All_Imaging_Pass'] & df['Leakage Pass']
