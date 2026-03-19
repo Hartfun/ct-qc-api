@@ -151,7 +151,9 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     # 60   = minutes in an hour
     # Pass when ratio <= 1.0
     df['Leakage_Max_Norm'] = (500 * df[LEAK_COLS].max(axis=1)) / (60 * 240)
-    df['Leakage Pass']     = df['Leakage_Max_Norm'] <= LEAK_LIMIT
+    # AERB primary gate: raw max reading <= 115 mR/hr.
+    # Leakage_Max_Norm is computed and stored as an informational ML feature only.
+    df['Leakage Pass'] = df[LEAK_COLS].max(axis=1) <= RAW_LEAK_LIMIT
 
     df['All_Imaging_Pass']       = df[pass_cols].all(axis=1)
     df['Overall_Acceptance_Pass'] = df['All_Imaging_Pass'] & df['Leakage Pass']
@@ -329,10 +331,11 @@ def api_predict(scan: ScanInput):
 
         leak_vals = [raw.get(c, 0.0) for c in LEAK_COLS]
         breakdown["Leakage"] = {
-            "max_raw": float(max(leak_vals)),
-            "norm":    float(df["Leakage_Max_Norm"].iloc[0]),
-            "limit":   float(LEAK_LIMIT),
-            "pass":    bool(df["Leakage Pass"].iloc[0]),
+            "max_raw":   float(max(leak_vals)),
+            "norm":      float(df["Leakage_Max_Norm"].iloc[0]),  # informational ML feature
+            "norm_limit": float(LEAK_LIMIT),                     # 1.0 — informational only
+            "raw_limit": float(RAW_LEAK_LIMIT),                  # 115 mR/hr — AERB pass gate
+            "pass":      bool(df["Leakage Pass"].iloc[0]),       # True when max_raw <= 115
         }
 
         return {

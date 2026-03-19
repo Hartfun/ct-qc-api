@@ -58,7 +58,8 @@ LEAK_COLS = [
     'Radiation Leakage Levels (Left)',
     'Radiation Leakage Levels (Right)',
 ]
-LEAK_LIMIT = 1.0   # normalized leakage limit: (500 mA/hr * max_raw) / (60 min * 240 mA) <= 1
+LEAK_LIMIT     = 1.0    # workload-normalised display value — informational only
+RAW_LEAK_LIMIT = 115.0  # AERB primary pass/fail gate: raw survey-meter reading <= 115 mR/hr
 
 FEATURE_COLS = [
     'Slice thickness 1.5 %dev',
@@ -109,7 +110,9 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     # 60*8 = 480 s = 8-minute scan workload
     # Pass when Leakage_Max_Norm <= 1.0
     df['Leakage_Max_Norm'] = (500 * df[LEAK_COLS].max(axis=1)) / (60 * 240)
-    df['Leakage Pass'] = df['Leakage_Max_Norm'] <= LEAK_LIMIT
+    # AERB primary gate: raw max reading <= 115 mR/hr.
+    # Leakage_Max_Norm is computed and stored as an informational ML feature only.
+    df['Leakage Pass'] = df[LEAK_COLS].max(axis=1) <= RAW_LEAK_LIMIT
     df['All_Imaging_Pass'] = df[pass_cols].all(axis=1)
     df['Overall_Acceptance_Pass'] = df['All_Imaging_Pass'] & df['Leakage Pass']
 
