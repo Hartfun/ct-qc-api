@@ -49,6 +49,11 @@ tolerances = {
     'Radiation Dose Test (Head) 21.50': 21.50 * 0.2,
     'Radiation Dose Test (Body) 10.60': 10.60 * 0.2,
     'High Contrast Resolution 6.24': 0.62,
+    # Low Contrast Resolution: one-sided upper limit (lower = better resolution).
+    # AERB pass condition: measured <= 5.0 lp/cm.
+    # Tolerance stored as 5.0 so the breakdown response shows the actual limit,
+    # and pct_deviation = (measured - 5.0) / 5.0 * 100 (positive = worse than spec).
+    'Low Contrast Resolution 5.0': 5.0,
 }
 
 LEAK_COLS = [
@@ -58,7 +63,8 @@ LEAK_COLS = [
     'Radiation Leakage Levels (Right)',
 ]
 # Leakage_Max_Norm = (500 mA/hr × max_raw) / (60 min × 240 mA) — pass when <= 1.0
-LEAK_LIMIT = 1.0
+LEAK_LIMIT     = 1.0    # workload-normalised value — informational ML feature only
+RAW_LEAK_LIMIT = 115.0  # AERB primary pass/fail gate: raw survey-meter reading <= 115 mR/hr
 
 FEATURE_COLS = [
     'Slice thickness 1.5 %dev',
@@ -145,8 +151,10 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     # 240  = actual tube current during leakage measurement (mA)
     # 60   = minutes in an hour
     # Pass when ratio <= 1.0
-    df['Leakage_Max_Norm'] = (500 * df[LEAK_COLS].max(axis=1)) / (60 * 240)
-    df['Leakage Pass']     = df['Leakage_Max_Norm'] <= LEAK_LIMIT
+    df['Leakage_Max_Norm'] = ((500 * df[LEAK_COLS].max(axis=1)) / (60 * 240)*100)
+    # AERB primary gate: raw max reading <= 115 mR/hr.
+    # Leakage_Max_Norm is computed and stored as an informational ML feature only.
+    df['Leakage Pass'] = df[LEAK_COLS].max(axis=1) <= RAW_LEAK_LIMIT
 
     df['All_Imaging_Pass']       = df[pass_cols].all(axis=1)
     df['Overall_Acceptance_Pass'] = df['All_Imaging_Pass'] & df['Leakage Pass']
@@ -306,21 +314,29 @@ def api_predict(scan: ScanInput):
             if val is None or tol is None:
                 continue
             pass_flag = bool(df[f"{col} Pass"].iloc[0])
-            pct_dev   = (val - spec_val) / spec_val * 100 if spec_val != 0 else 0.0
+            # Low Contrast Resolution is a one-sided upper-limit metric (lower = better).
+            # pct_deviation = how far the reading is above/below the 5.0 lp/cm limit.
+            # Positive value means worse than spec; negative means better than spec.
+            if col == "Low Contrast Resolution 5.0":
+                pct_dev = (val - spec_val) / spec_val * 100  # (measured - 5.0) / 5.0 * 100
+            else:
+                pct_dev = (val - spec_val) / spec_val * 100 if spec_val != 0 else 0.0
             breakdown[col] = {
                 "value":         float(val),
                 "spec":          float(spec_val),
                 "tolerance":     float(tol),
+                "one_sided":     col == "Low Contrast Resolution 5.0",
                 "pass":          pass_flag,
                 "pct_deviation": round(pct_dev, 3),
             }
 
         leak_vals = [raw.get(c, 0.0) for c in LEAK_COLS]
         breakdown["Leakage"] = {
-            "max_raw": float(max(leak_vals)),
-            "norm":    float(df["Leakage_Max_Norm"].iloc[0]),
-            "limit":   float(LEAK_LIMIT),
-            "pass":    bool(df["Leakage Pass"].iloc[0]),
+            "max_raw":   float(max(leak_vals)),
+            "norm":      float(df["Leakage_Max_Norm"].iloc[0]),  # informational ML feature
+            "norm_limit": float(LEAK_LIMIT),                     # 1.0 — informational only
+            "raw_limit": float(RAW_LEAK_LIMIT),                  # 115 mR/hr — AERB pass gate
+            "pass":      bool(df["Leakage Pass"].iloc[0]),       # True when max_raw <= 115
         }
 
         return {
