@@ -45,11 +45,6 @@ tolerances = {
     'Radiation Dose Test (Head) 21.50': 21.50 * 0.2,
     'Radiation Dose Test (Body) 10.60': 10.60 * 0.2,
     'High Contrast Resolution 6.24': 0.62,
-    # Low Contrast Resolution: one-sided upper limit (lower = better resolution).
-    # AERB pass condition: measured <= 5.0 lp/cm.
-    # Tolerance stored as 5.0 so the breakdown response shows the actual limit,
-    # and pct_deviation = (measured - 5.0) / 5.0 * 100 (positive = worse than spec).
-    'Low Contrast Resolution 5.0': 5.0,
 }
 
 LEAK_COLS = [
@@ -58,8 +53,7 @@ LEAK_COLS = [
     'Radiation Leakage Levels (Left)',
     'Radiation Leakage Levels (Right)',
 ]
-LEAK_LIMIT     = 1.0    # workload-normalised display value — informational only
-RAW_LEAK_LIMIT = 115.0  # AERB primary pass/fail gate: raw survey-meter reading <= 115 mR/hr
+LEAK_LIMIT = 1.0   # normalized leakage limit: (500 mA/hr * max_raw) / (60 min * 240 mA) <= 1
 
 FEATURE_COLS = [
     'Slice thickness 1.5 %dev',
@@ -110,9 +104,7 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     # 60*8 = 480 s = 8-minute scan workload
     # Pass when Leakage_Max_Norm <= 1.0
     df['Leakage_Max_Norm'] = (500 * df[LEAK_COLS].max(axis=1)) / (60 * 240)
-    # AERB primary gate: raw max reading <= 115 mR/hr.
-    # Leakage_Max_Norm is computed and stored as an informational ML feature only.
-    df['Leakage Pass'] = df[LEAK_COLS].max(axis=1) <= RAW_LEAK_LIMIT
+    df['Leakage Pass'] = df['Leakage_Max_Norm'] <= LEAK_LIMIT
     df['All_Imaging_Pass'] = df[pass_cols].all(axis=1)
     df['Overall_Acceptance_Pass'] = df['All_Imaging_Pass'] & df['Leakage Pass']
 
