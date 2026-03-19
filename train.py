@@ -45,6 +45,11 @@ tolerances = {
     'Radiation Dose Test (Head) 21.50': 21.50 * 0.2,
     'Radiation Dose Test (Body) 10.60': 10.60 * 0.2,
     'High Contrast Resolution 6.24': 0.62,
+    # Low Contrast Resolution: one-sided upper limit (lower = better resolution).
+    # AERB pass condition: measured <= 5.0 lp/cm.
+    # Tolerance stored as 5.0 so the breakdown response shows the actual limit,
+    # and pct_deviation = (measured - 5.0) / 5.0 * 100 (positive = worse than spec).
+    'Low Contrast Resolution 5.0': 5.0,
 }
 
 LEAK_COLS = [

@@ -49,6 +49,11 @@ tolerances = {
     'Radiation Dose Test (Head) 21.50': 21.50 * 0.2,
     'Radiation Dose Test (Body) 10.60': 10.60 * 0.2,
     'High Contrast Resolution 6.24': 0.62,
+    # Low Contrast Resolution: one-sided upper limit (lower = better resolution).
+    # AERB pass condition: measured <= 5.0 lp/cm.
+    # Tolerance stored as 5.0 so the breakdown response shows the actual limit,
+    # and pct_deviation = (measured - 5.0) / 5.0 * 100 (positive = worse than spec).
+    'Low Contrast Resolution 5.0': 5.0,
 }
 
 LEAK_COLS = [
@@ -306,11 +311,18 @@ def api_predict(scan: ScanInput):
             if val is None or tol is None:
                 continue
             pass_flag = bool(df[f"{col} Pass"].iloc[0])
-            pct_dev   = (val - spec_val) / spec_val * 100 if spec_val != 0 else 0.0
+            # Low Contrast Resolution is a one-sided upper-limit metric (lower = better).
+            # pct_deviation = how far the reading is above/below the 5.0 lp/cm limit.
+            # Positive value means worse than spec; negative means better than spec.
+            if col == "Low Contrast Resolution 5.0":
+                pct_dev = (val - spec_val) / spec_val * 100  # (measured - 5.0) / 5.0 * 100
+            else:
+                pct_dev = (val - spec_val) / spec_val * 100 if spec_val != 0 else 0.0
             breakdown[col] = {
                 "value":         float(val),
                 "spec":          float(spec_val),
                 "tolerance":     float(tol),
+                "one_sided":     col == "Low Contrast Resolution 5.0",
                 "pass":          pass_flag,
                 "pct_deviation": round(pct_dev, 3),
             }
